@@ -6,30 +6,19 @@ A simple gui tool for set dns settings based on GTK4, related to [parchlinux pro
 
 ![Screenshot from 2024-06-08 14-46-56](https://github.com/parchlinuxB/namban/assets/59795638/22e368c0-6277-4689-b39b-8dd4c961441e)
 
-## run
+## Branch V1
 
-It not released in a poppular repository yet, to use it you may use parchlinux repositories `pacman -S namban` or download package files from release page, or use a develpment environment.
+This branch is about changing app ui, refactor, add DoH and DoT support. contributors are welcome.
 
 ## develop environment
 
 1. python > 3.10
 2. Gtk > 4.10
-3. PyGObject
-4. A glass of milk for mental peace
+3. Adw
+4. PyGObject
+5. A lot of milk for mental peace
 
 ## To Do
-- [x] Make a Icon! ( Done by HUSS )
-- [x] Fix text color in darkmode
-- [x] Send maintainer to therapy ( Done by sohrab and HUSS )
-- [x] publish in parch repos ( Done by sohrab )
-- [ ] publish in AUR
-- [X] Add build file for debian ( Done by ARS101 )
-- [X] Create a CI/CD 4 debian ( Done by ARS101 )
-- [X] Add build file for redhat ( Done by sohrab )
-- [ ] Error Message for wrong input [#5](https://github.com/parchlinuxB/namban/issues/5)
-## Far To Do
-- [ ] DoH & DoT support
-## Planned for v1
-- [ ] Add DoH support
-- [ ] Rewrite with new design in js
-
+- [ ] DoH & DoT support.
+- [ ] Rewrite with new design in js.
+- [ ] Make sure it's compatible with previous version.
