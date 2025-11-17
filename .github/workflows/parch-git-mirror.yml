@@ -1,0 +1,23 @@
+name: Mirror to Forgejo
+
+on:
+  push:
+    branches:
+      - '**'
+  delete:
+  create: 
+
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # we need full history for --mirror
+
+      - name: Push to Forgejo
+        run: |
+          git remote add forgejo "${{ secrets.FORGEJO_MIRROR_URL }}"
+          git push --mirror forgejo
