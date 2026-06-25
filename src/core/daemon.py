@@ -19,6 +19,12 @@ def read_entry():
         entry += _in
     return json.loads(entry)
 
+def write_response(**kw):
+    print('$resp')
+    print(json.dumps(kw))
+    print('$end')
+
+
 def write_error(err):
     print('$error')
     print(err)
@@ -69,9 +75,53 @@ while True:
             print('$end')
         except Exception as e:
             write_error(str(e))
+    elif command == 'read':
+        args = read_entry()
+        file = args.get('file')
+        try:
+            with open(file, 'r') as f:
+                data = f.read()
+            write_response(body=data)
+        except Exception as e:
+            write_error(str(e))
+    elif command == 'exists':
+        args = read_entry()
+        path = args.get('path')
+        try:
+            result = os.path.exists(path)
+            write_response(result=result)
+        except Exception as e:
+            write_error(str(e))
+    
+    elif command == 'mkdir':
+        args = read_entry()
+        path = args.get('path')
+        try:
+            os.makedirs(path, exist_ok=True)
+            write_response(result=True)
+        except Exception as e:
+            write_error(str(e))
+    
     elif command == 'reload-resolved':
+        try:
+            with subprocess.Popen(
+                ['systemctl', 'reload-or-restart', 'systemd-resolved'],
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL
+            ) as process:
+                _, err = process.communicate()
+                if process.returncode != 0:
+                    write_error(err)
+                else:
+                    write_response(result=True)
+        except Exception as e:
+            write_error(str(e))
+    elif command == 'execute':
+        args = read_entry()
+        exec_command = args.get('command')
         with subprocess.Popen(
-            ['systemctl', 'restart', 'systemd-resolved'],
+            exec_command,
             stderr=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL
@@ -81,5 +131,7 @@ while True:
                 write_error(err)
             else:
                 print('$end')
-    
+    elif command == 'exit':
+        sys.exit(0)
+
 

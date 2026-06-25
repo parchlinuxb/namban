@@ -83,7 +83,7 @@ class MainWindow(Adw.ApplicationWindow):
                         row.set_active(False)
                         break
         elif self.active_profile == profile:
-            if self.dns_manager.restore_config():
+            if self.dns_manager.restore_previous_config():
                 self.toast_overlay.add_toast(Adw.Toast.new("Restored default DNS"))
                 self.active_profile = None
             else:
@@ -152,7 +152,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._load_profiles()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Profile '{profile.name}' removed"))
         if self.active_profile == profile:
-            self.dns_manager.restore_config()
+            self.dns_manager.restore_previous_config()
             self.active_profile = None
             self._update_status()
 

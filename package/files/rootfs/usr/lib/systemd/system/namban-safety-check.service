@@ -1,0 +1,14 @@
+[Unit]
+Description=Namban DNS Emergency Rollback Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/namban/namban-emergency-rollback
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

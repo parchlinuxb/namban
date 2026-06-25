@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""
+Emergency rollback script for Namban DNS Manager.
+
+This script is designed to be run:
+1. On system startup to check for incomplete DNS changes
+2. As a systemd timer for periodic safety checks  
+3. Manually when DNS issues are detected
+
+It will automatically rollback any DNS changes that may have caused system issues.
+"""
+
+import sys
+import os
+from pathlib import Path
+
+# Add src directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from dns_manager import DNSManager
+from core.toolbox import BaseToolBox
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def check_and_rollback_if_needed():
+    """Check if rollback is needed and perform if necessary."""
+    logger.info("Namban emergency rollback check started")
+    
+    try:
+        # Check if we're running with sufficient privileges
+        if os.getuid() != 0:
+            logger.error("This script must be run as root")
+            return False
+        
+        dns_manager = DNSManager()
+        history = dns_manager.get_history()
+        
+        if not history:
+            logger.info("No DNS changes in history")
+            return True
+        
+        logger.warning(f"Found {len(history)} DNS configuration changes in history")
+        logger.info("This could indicate the system crashed during DNS updates.")
+        logger.info("Performing emergency rollback to restore stability...")
+        
+        if dns_manager.restore_previous_config():
+            logger.info("Successfully rolled back DNS configuration")
+            logger.info("System should now be stable. Check your internet connectivity.")
+            return True
+        else:
+            logger.error("Failed to rollback DNS configuration")
+            logger.error("Please manually restore DNS settings or contact support")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Emergency rollback check failed: {e}", exc_info=True)
+        return False
+
+
+if __name__ == "__main__":
+    success = check_and_rollback_if_needed()
+    sys.exit(0 if success else 1)

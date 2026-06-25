@@ -5,126 +5,95 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 from models import DNSProfile, DNSType
+from core.toolbox import BaseToolBox, toolbox
+from core.action_history import ActionHistory
+from core.dns_actions import ApplyDNSProfile, BackupDNSConfig
+
 
 class DNSManager:
-    def __init__(self):
-        self._subprocess: subprocess.Popen | None = None
-
-        self.daemon_path = Path(__file__).parent / 'core'/ 'daemon.py' 
+    """DNS Manager using action-based system for safe, reversible changes.
+    
+    ActionHistory is lazily loaded on first use to avoid privileged operations
+    during application startup.
+    """
+    
+    def __init__(self, history_dir: str = "/var/lib/namban"):
         self.config_path = Path("/etc/systemd/resolved.conf")
-        self.backup_path = Path(f"/tmp/namban_resolved_backup_{os.getuid()}.conf")
+        self.toolbox = toolbox
+        self._history: Optional[ActionHistory] = None
+        self.history_dir = history_dir
         self.current_profile: Optional[DNSProfile] = None
-
+    
     @property
-    def subprocess(self) -> subprocess.Popen:
-        if self._subprocess:
-            return self._subprocess
-        self._subprocess = subprocess.Popen(
-            ['pkexec', sys.executable, str(self.daemon_path)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        self._hello()
-        return self._subprocess
-
-    def _hello(self):
-        while self._readline() != '$hello':
-            pass
-        self._write('&hi')
-
-    def _readline(self):
-        line = self.subprocess.stdout.readline()
-        line = line.decode()
-        return line.strip()
-
-    def _write(self, mess:str):
-        self.subprocess.stdin.write((mess+'\n').encode())
-        self.subprocess.stdin.flush()
-
-    def _write_arguments(self, **kws):
-        js = json.dumps(kws)
-        self._write(js)
-        self._write('&end')
-
-    def _read_result(self):
-        error = None
-        while True:
-            line = self._readline()
-            if line == '$end':
-                break
-            if '$error':
-                error = ''
-            elif error is not None:
-                error += line + '\n'
-        if error is not None:
-            return False, error
-        return True, None
-
-    def backup_current_config(self) -> bool:
-        self._write('&copy')
-        self._write_arguments(source=str(self.config_path), dest=str(self.backup_path))
-        result, error = self._read_result()
-        if error:
-            print(error)
-        return result
-
-    def restore_config(self) -> bool:
-        self._write('&copy')
-        self._write_arguments(source=str(self.backup_path), dest=str(self.config_path))
-        result, error = self._read_result()
-        if result:
-            self._write('&remove')
-            self._write_arguments(dest=str(self.backup_path))
-            result, error = self._read_result()
-        if error:
-            print(error)
-        return result
-
+    def history(self) -> ActionHistory:
+        """Lazily load ActionHistory on first access."""
+        if self._history is None:
+            self._history = ActionHistory(self.history_dir)
+        return self._history
 
     def apply_profile(self, profile: DNSProfile) -> bool:
-        if not self.backup_current_config():
+        """Apply DNS profile with automatic rollback capability.
+        
+        Records action in history for potential recovery if system crashes.
+        """
+        try:
+            # Backup current config before applying
+            backup_action = BackupDNSConfig(
+                source=str(self.config_path),
+                backup_path=str(Path(self.history_dir) / "resolved.conf.backup")
+            )
+            backup_data = backup_action.do(self.toolbox)
+            self.history.record_action(backup_action, backup_data, profile.name)
+            
+            # Apply the DNS profile
+            apply_action = ApplyDNSProfile(profile, str(self.config_path))
+            action_data = apply_action.do(self.toolbox)
+            self.history.record_action(apply_action, action_data, profile.name)
+            
+            self.current_profile = profile
+            return True
+        except Exception as e:
+            print(f"Error applying profile: {e}")
             return False
-        config_content = self._generate_resolved_conf(profile)
-        self._write('&write')
-        self._write_arguments(file=str(self.config_path), body=config_content)
-        result, error = self._read_result()
-        if result:
-            result = self.reload_systemd_resolved()
-            if result: 
-                self.current_profile = profile
-            return result
-        print(error)
-        return result
-
-
-    def _generate_resolved_conf(self, profile: DNSProfile) -> str:
-        lines = ["# Generated by Namban DNS Manager", "[Resolve]"]
-        dns_servers = []
-        is_doh = any(s.dns_type == DNSType.DOH for s in profile.servers)
-        is_dot = any(s.dns_type == DNSType.DOT for s in profile.servers)
-
-        for server in profile.servers:
-            dns_servers.append(server.primary)
-            if server.secondary:
-                dns_servers.append(server.secondary)
-
-        if dns_servers:
-            lines.append(f"DNS={' '.join(dns_servers)}")
-        if is_doh:
-            lines.append("DNSOverHTTPS=yes")
-        elif is_dot:
-            lines.append("DNSOverTLS=opportunistic")
-
-        lines.extend(["DNSSEC=allow-downgrade", "DNSStubListener=yes", "Cache=yes", ""])
-        return '\n'.join(lines)
-
-    def reload_systemd_resolved(self):
-        self._write('&reload-resolved')
-        result, error = self._read_result()
-        if error:
-            print(error)
-        return result
-
+    
+    def restore_previous_config(self) -> bool:
+        """Restore to previous DNS configuration from history."""
+        return self.history.rollback_all_actions(self.toolbox)
+    
+    def restore_to_action(self, action_index: int) -> bool:
+        """Restore to a specific point in action history."""
+        return self.history.rollback_to_action(action_index, self.toolbox)
+    
+    def get_history(self) -> List[dict]:
+        """Get full action history."""
+        return self.history.get_history()
+    
+    def get_recent_actions(self, count: int = 10) -> List[dict]:
+        """Get recent actions."""
+        return self.history.get_recent_actions(count)
+    
     def get_current_dns(self) -> List[str]:
+        """Read current DNS servers from resolved.conf."""
+        try:
+            if not self.toolbox.exists(str(self.config_path)):
+                return []
+            
+            content = self.toolbox.read(str(self.config_path))
+            dns_servers = []
+            
+            for line in content.split('\n'):
+                line = line.strip()
+                if line.startswith('DNS='):
+                    servers_str = line.replace('DNS=', '')
+                    dns_servers.extend(servers_str.split())
+            
+            return dns_servers
+        except Exception as e:
+            print(f"Error reading DNS config: {e}")
+            return []
+    
+    def clear_history(self) -> None:
+        """Clear action history (for testing/cleanup)."""
+        self.history.clear_history()
+
         return []

@@ -1,9 +1,6 @@
 pkgname=namban
-pkgver() {
-    cd "$srcdir/namban"
-    git describe --tags --abbrev=0
-}
-pkgrel=1
+pkgver=1.1.0.beta.1
+pkgrel=2
 pkgdesc="use custom dns has never been hard"
 arch=('any')
 url="https://github.com/parchlinuxb/namban"
