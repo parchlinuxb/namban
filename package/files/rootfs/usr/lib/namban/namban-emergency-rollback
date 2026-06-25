@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from dns_manager import DNSManager
-from core.toolbox import BaseToolBox
+from nambancore.toolbox import BaseToolBox
 import logging
 
 logging.basicConfig(

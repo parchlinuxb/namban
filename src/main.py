@@ -9,7 +9,7 @@ import argparse
 from gi.repository import Gtk, Adw, Gio
 from main_window import MainWindow
 from dns_manager import DNSManager
-from core.toolbox import BaseToolBox, toolbox
+from nambancore.toolbox import BaseToolBox, toolbox
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
 logger = logging.getLogger(__name__)

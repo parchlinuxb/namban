@@ -5,9 +5,9 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 from models import DNSProfile, DNSType
-from core.toolbox import BaseToolBox, toolbox
-from core.action_history import ActionHistory
-from core.dns_actions import ApplyDNSProfile, BackupDNSConfig
+from nambancore.toolbox import BaseToolBox, toolbox
+from nambancore.action_history import ActionHistory
+from nambancore.dns_actions import ApplyDNSProfile, BackupDNSConfig
 
 
 class DNSManager:
