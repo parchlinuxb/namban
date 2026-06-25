@@ -1,11 +1,12 @@
 pkgname=namban
-pkgver=0.3
-pkgrel=7
+pkgver=1.1.0.beta.1
+pkgrel=2
 pkgdesc="use custom dns has never been hard"
 arch=('any')
 url="https://github.com/parchlinuxb/namban"
 license=("GPL-3.0")
-depends=("python>=3.10.0" "python-gobject" "gtk4")
+makedepends=("git")
+depends=("python>=3.10.0" "python-gobject" "gtk4" "libadwaita")
 source=("namban-source.zip")
 sha256sums=('SKIP')
 
@@ -19,7 +20,6 @@ package() {
     cp -r rootfs/* $pkgdir
     cp -r src $pkgdir/usr/lib/namban/
     chmod +x $pkgdir/usr/bin/namban
-    chmod +x $pkgdir/usr/lib/namban/nambanbin
-    chmod +x $pkgdir/usr/lib/namban/namban-startup-check
+    chmod +x $pkgdir/usr/lib/namban/namban-emergency-rollback
     chmod 644 $pkgdir/usr/share/polkit-1/actions/com.parchlinux.namban.policy
 }

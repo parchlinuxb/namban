@@ -1,0 +1,11 @@
+[Unit]
+Description=Namban DNS Emergency Rollback Check Timer
+Requires=namban-safety-check.service
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+Unit=namban-safety-check.service
+
+[Install]
+WantedBy=timers.target

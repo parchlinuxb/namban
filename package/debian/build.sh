@@ -11,6 +11,7 @@ depends=(
 	"python3"
 	"gir1.2-gtk-4.0"
 	"python3-gi"
+	"libadwaita"
 )
 makedepends=(
 	"git"
@@ -38,7 +39,7 @@ package() {
 	Depends: $depends_str
 	Description: $pkgdesc" | tr -d '\t' > "$pkgdir/DEBIAN/control"
 
-	chmod +x "$pkgdir/usr/"{bin/namban,lib/namban/{nambanbin,namban-startup-check}}
+	chmod +x "$pkgdir/usr/"{bin/namban,lib/namban/{namban-emergency-rollback}}
 
 	dpkg-deb --build --root-owner-group "$pkgdir"
 }

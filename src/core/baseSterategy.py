@@ -1,6 +1,0 @@
-class base_strategy:
-    def __init__(self, profile) -> None:
-        self.promises = []
-        self.profile = profile
-    def connect (self):...
-    def disconnect(self):...

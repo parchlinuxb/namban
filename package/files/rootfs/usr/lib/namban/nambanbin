@@ -1,7 +1,0 @@
-#!/bin/bash
-# Name: nambanbin
-# Porpuse: run the numban
-# Path: /usr/lib/namban/
-# NOTE: This file sould executed as root and normaly called by /usr/bin/namban
-cd /usr/lib/namban/src
-/usr/bin/python3 /usr/lib/namban/src/namban.py --release
