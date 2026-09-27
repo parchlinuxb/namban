@@ -21,5 +21,6 @@ package() {
     cp -r src $pkgdir/usr/lib/namban/
     chmod +x $pkgdir/usr/bin/namban
     chmod +x $pkgdir/usr/lib/namban/namban-emergency-rollback
+    chmod +x $pkgdir/usr/lib/namban/namban-daemon
     chmod 644 $pkgdir/usr/share/polkit-1/actions/com.parchlinux.namban.policy
 }

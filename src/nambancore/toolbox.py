@@ -13,10 +13,19 @@ class BaseToolBox:
     def _subprocess(self) -> subprocess.Popen:
         if self._subprocess_keeper:
             return self._subprocess_keeper
+        
+        system_daemon_launcher = Path('/usr/lib/namban/namban-daemon')
         if os.getuid() == 0:
-            command = [sys.executable, str(self.daemon_path)]
+            if system_daemon_launcher.exists():
+                command = [str(system_daemon_launcher)]
+            else:
+                command = [sys.executable, str(self.daemon_path)]
         else:
-            command = ['pkexec', sys.executable, str(self.daemon_path)]
+            if system_daemon_launcher.exists():
+                command = ['pkexec', str(system_daemon_launcher)]
+            else:
+                command = ['pkexec', sys.executable, str(self.daemon_path)]
+
         self._subprocess_keeper = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
@@ -31,9 +40,11 @@ class BaseToolBox:
             pass
         self._write('&hi')
 
-
     def _readline(self):
         line = self._subprocess.stdout.readline()
+        if not line:
+            returncode = self._subprocess.poll()
+            raise RuntimeError(f"Privileged daemon process terminated or authorization cancelled (code: {returncode})")
         line = line.decode()
         return line.strip()
 
@@ -114,23 +125,12 @@ class BaseToolBox:
             print(error)
         return result
     
-    def execute(self, command: list) -> bool:
+    def execute(self, command: list[str]) -> bool:
         self._write('&execute')
         self._write_arguments(command=command)
         result, error = self._read_result()
         if error:
-            print(error)
+            print(f"Daemon execute error: {error}")
         return result
-        self._write('&exists')
-        self._write_arguments(path=path)
-        success, result = self._read_result()
-        if success:
-            return result.get('result')
-
-    def execute(self, command: list[str]):
-        self._write('&execute')
-        self._write_arguments(command=command)
-        success, _ = self._read_result()
-        return success
 
 toolbox = BaseToolBox()
