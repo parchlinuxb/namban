@@ -29,7 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 def check_and_rollback_if_needed():
-    """Check if rollback is needed and perform if necessary."""
+    """Check if rollback is needed and perform if necessary.
+    
+    Verifies that DNS resolution is functioning. Only rolls back if DNS resolution fails.
+    """
     logger.info("Namban emergency rollback check started")
     
     try:
@@ -44,9 +47,25 @@ def check_and_rollback_if_needed():
         if not history:
             logger.info("No DNS changes in history")
             return True
-        
-        logger.warning(f"Found {len(history)} DNS configuration changes in history")
-        logger.info("This could indicate the system crashed during DNS updates.")
+
+        # Test whether DNS resolution is working
+        import socket
+        dns_healthy = False
+        test_domains = ["parchlinux.com", "archlinux.org", "kernel.org"]
+        for domain in test_domains:
+            try:
+                socket.setdefaulttimeout(3.0)
+                socket.getaddrinfo(domain, 80)
+                dns_healthy = True
+                break
+            except Exception:
+                continue
+
+        if dns_healthy:
+            logger.info("DNS safety check passed: network resolution is healthy")
+            return True
+
+        logger.warning(f"DNS resolution failed and {len(history)} configuration changes found in history")
         logger.info("Performing emergency rollback to restore stability...")
         
         if dns_manager.restore_previous_config():
