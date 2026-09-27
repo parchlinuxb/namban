@@ -18,7 +18,9 @@ class DNSManager:
     """
     
     def __init__(self, history_dir: str = "/var/lib/namban"):
-        self.config_path = Path("/etc/systemd/resolved.conf")
+        self.dropin_path = Path("/etc/systemd/resolved.conf.d/namban.conf")
+        self.base_config_path = Path("/etc/systemd/resolved.conf")
+        self.config_path = self.dropin_path
         self.toolbox = toolbox
         self._history: Optional[ActionHistory] = None
         self.history_dir = history_dir
@@ -73,19 +75,27 @@ class DNSManager:
         return self.history.get_recent_actions(count)
     
     def get_current_dns(self) -> List[str]:
-        """Read current DNS servers from resolved.conf."""
+        """Read current DNS servers directly without requiring root privileges."""
         try:
-            if not self.toolbox.exists(str(self.config_path)):
+            target_path = self.dropin_path if self.dropin_path.exists() else self.base_config_path
+            if not target_path.exists():
                 return []
             
-            content = self.toolbox.read(str(self.config_path))
-            dns_servers = []
+            with open(target_path, 'r', encoding='utf-8') as f:
+                content = f.read()
             
-            for line in content.split('\n'):
+            dns_servers = []
+            for line in content.splitlines():
                 line = line.strip()
                 if line.startswith('DNS='):
-                    servers_str = line.replace('DNS=', '')
-                    dns_servers.extend(servers_str.split())
+                    servers_str = line.split('=', 1)[1]
+                    for s in servers_str.split():
+                        # Strip DoT SNI suffix (#hostname) for user-friendly display
+                        clean_s = s.split('#')[0]
+                        if clean_s == "127.0.0.54:53":
+                            dns_servers.append("DoH (Local Proxy)")
+                        else:
+                            dns_servers.append(clean_s)
             
             return dns_servers
         except Exception as e:
@@ -95,5 +105,3 @@ class DNSManager:
     def clear_history(self) -> None:
         """Clear action history (for testing/cleanup)."""
         self.history.clear_history()
-
-        return []
