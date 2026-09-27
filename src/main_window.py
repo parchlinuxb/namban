@@ -1,7 +1,7 @@
 import gi
 from typing import List, Optional
 from gi.repository import Gtk, Adw, GLib, Gio
-from models import DNSProfile
+from models import DNSProfile, DNSType
 from dns_manager import DNSManager
 from profile_manager import ProfileManager
 from ui_components import ProfileRow, ProfileEditSheet, SettingsPage
@@ -55,6 +55,9 @@ class MainWindow(Adw.ApplicationWindow):
         for row in self.profile_rows:
             self.profiles_group.remove(row)
         self.profile_rows.clear()
+        current_dns = self.dns_manager.get_current_dns()
+        self.active_profile = None
+
         for profile in self.profile_manager.profiles:
             row = ProfileRow(profile,
                              on_activate=self._on_profile_activate,
@@ -62,6 +65,19 @@ class MainWindow(Adw.ApplicationWindow):
                              on_delete=self._on_profile_delete)
             self.profiles_group.add(row)
             self.profile_rows.append(row)
+
+            # Check if profile matches active system DNS
+            profile_servers = []
+            for s in profile.servers:
+                if s.dns_type == DNSType.DOH:
+                    profile_servers.append("DoH (Local Proxy)")
+                else:
+                    profile_servers.append(s.primary)
+                    if s.secondary:
+                        profile_servers.append(s.secondary)
+            if profile_servers and profile_servers == current_dns:
+                row.set_active(True)
+                self.active_profile = profile
 
     def _update_status(self):
         current_dns = self.dns_manager.get_current_dns()
