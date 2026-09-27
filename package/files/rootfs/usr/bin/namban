@@ -4,4 +4,4 @@
 # Path: /usr/bin/
 
 cd /usr/lib/namban/src
-/usr/bin/python3 /usr/lib/namban/src/main.py --release
+exec /usr/bin/python3 /usr/lib/namban/src/main.py --release "$@"
