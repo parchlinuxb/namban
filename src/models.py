@@ -14,6 +14,7 @@ class DNSServer:
     secondary: Optional[str] = None
     dns_type: DNSType = DNSType.STANDARD
     doh_url: Optional[str] = None
+    tls_hostname: Optional[str] = None
     description: Optional[str] = None
 
 class DNSProfile:
