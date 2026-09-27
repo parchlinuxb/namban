@@ -126,7 +126,7 @@ class MainWindow(Adw.ApplicationWindow):
         header.pack_end(save_button)
 
         def on_save(_):
-            new_profile = sheet_content.get_profile()
+            new_profile, error_msg = sheet_content.get_profile()
             if new_profile:
                 if old_profile:
                     self._on_profile_updated(old_profile, new_profile)
@@ -134,7 +134,7 @@ class MainWindow(Adw.ApplicationWindow):
                     self._on_profile_added(new_profile)
                 self.bottom_sheet.set_open(False)
             else:
-                self.toast_overlay.add_toast(Adw.Toast.new("Profile Name and Primary DNS are required."))
+                self.toast_overlay.add_toast(Adw.Toast.new(error_msg or "Please fill in all required fields."))
 
         save_button.connect('clicked', on_save)
         self.bottom_sheet.set_sheet(toolbar_view)

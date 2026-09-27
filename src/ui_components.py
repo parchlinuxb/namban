@@ -29,6 +29,28 @@ class SettingsPage(Adw.PreferencesPage):
             self.host_row.set_text("Proxy is disabled or not configured")
             self.port_row.set_text("")
 
+KNOWN_DOT_PROVIDERS = {
+    "cloudflare-dns.com": "1.1.1.1",
+    "one.one.one.one": "1.1.1.1",
+    "dns.google": "8.8.8.8",
+    "dns.quad9.net": "9.9.9.9",
+    "dns.adguard-dns.com": "94.140.14.14",
+    "base.dns.mullvad.net": "194.242.2.2",
+    "extended.dns.mullvad.net": "194.242.2.3",
+    "dns.nextdns.io": "45.90.28.0",
+}
+
+KNOWN_IP_TO_DOT = {
+    "1.1.1.1": "cloudflare-dns.com",
+    "1.0.0.1": "cloudflare-dns.com",
+    "8.8.8.8": "dns.google",
+    "8.8.4.4": "dns.google",
+    "9.9.9.9": "dns.quad9.net",
+    "149.112.112.112": "dns.quad9.net",
+    "94.140.14.14": "dns.adguard-dns.com",
+    "94.140.15.15": "dns.adguard-dns.com",
+}
+
 class ProfileRow(Adw.ActionRow):
     def __init__(self, profile: DNSProfile, on_activate: Callable, on_edit: Callable, on_delete: Callable):
         super().__init__()
@@ -36,7 +58,21 @@ class ProfileRow(Adw.ActionRow):
         self.on_activate = on_activate
         self._is_updating = False
         self.set_title(profile.name)
-        self.set_subtitle(" • ".join([s.primary + (f", {s.secondary}" if s.secondary else "") for s in profile.servers]))
+        
+        subtitle_parts = []
+        for s in profile.servers:
+            if s.dns_type == DNSType.DOH and s.doh_url:
+                subtitle_parts.append(s.doh_url)
+            elif s.dns_type == DNSType.DOT:
+                entry = f"{s.primary}#{s.tls_hostname}" if s.tls_hostname else s.primary
+                if s.secondary:
+                    sec_entry = f"{s.secondary}#{s.tls_hostname}" if s.tls_hostname else s.secondary
+                    entry += f", {sec_entry}"
+                subtitle_parts.append(entry)
+            else:
+                entry = s.primary + (f", {s.secondary}" if s.secondary else "")
+                subtitle_parts.append(entry)
+        self.set_subtitle(" • ".join(subtitle_parts))
 
         self.switch = Gtk.Switch(valign=Gtk.Align.CENTER)
         self.switch.connect('state-set', self._on_switch_state_set)
@@ -68,6 +104,8 @@ class ProfileEditSheet(Gtk.Box):
         self._build_form()
         if profile:
             self._populate_fields()
+        else:
+            self._update_field_visibility(0)
 
     def _build_form(self):
         clamp = Adw.Clamp(maximum_size=400, tightening_threshold=300)
@@ -78,46 +116,123 @@ class ProfileEditSheet(Gtk.Box):
         group = Adw.PreferencesGroup()
         page.add(group)
         self.name_row = Adw.EntryRow(title="Profile Name")
-        self.primary_row = Adw.EntryRow(title="Primary DNS")
-        self.secondary_row = Adw.EntryRow(title="Secondary DNS (Optional)")
-        self.description_row = Adw.EntryRow(title="Description (Optional)")
+        
         type_model = Gtk.StringList.new(["Standard DNS", "DNS over HTTPS (DoH)", "DNS over TLS (DoT)"])
         self.type_row = Adw.ComboRow(title="DNS Type", model=type_model)
         self.type_row.connect('notify::selected', self._on_type_changed)
-        self.doh_row = Adw.EntryRow(title="DoH URL", visible=False)
-        self.dot_hostname_row = Adw.EntryRow(title="DoT Hostname (SNI)", visible=False)
-        for row in [self.name_row, self.type_row, self.primary_row, self.secondary_row, self.doh_row, self.dot_hostname_row, self.description_row]:
+        
+        # Standard DNS rows
+        self.primary_row = Adw.EntryRow(title="Primary DNS (IP)")
+        self.secondary_row = Adw.EntryRow(title="Secondary DNS (IP, Optional)")
+
+        # DoH row
+        self.doh_row = Adw.EntryRow(title="DoH URL (e.g. https://cloudflare-dns.com/dns-query)", visible=False)
+
+        # DoT rows
+        self.dot_server_row = Adw.EntryRow(title="DoT Server (e.g. 1.1.1.1#cloudflare-dns.com or dns.google)", visible=False)
+        self.dot_secondary_row = Adw.EntryRow(title="Secondary DoT Server (Optional)", visible=False)
+
+        self.description_row = Adw.EntryRow(title="Description (Optional)")
+
+        for row in [self.name_row, self.type_row, self.primary_row, self.secondary_row,
+                    self.doh_row, self.dot_server_row, self.dot_secondary_row, self.description_row]:
             group.add(row)
 
     def _on_type_changed(self, *_):
-        selected = self.type_row.get_selected()
+        self._update_field_visibility(self.type_row.get_selected())
+
+    def _update_field_visibility(self, selected: int):
+        # 0: Standard, 1: DoH, 2: DoT
+        self.primary_row.set_visible(selected == 0)
+        self.secondary_row.set_visible(selected == 0)
+
         self.doh_row.set_visible(selected == 1)
-        self.dot_hostname_row.set_visible(selected == 2)
+
+        self.dot_server_row.set_visible(selected == 2)
+        self.dot_secondary_row.set_visible(selected == 2)
 
     def _populate_fields(self):
         self.name_row.set_text(self.profile.name)
         if self.profile.servers:
             s = self.profile.servers[0]
-            self.primary_row.set_text(s.primary)
-            self.secondary_row.set_text(s.secondary or "")
             self.description_row.set_text(s.description or "")
-            self.doh_row.set_text(s.doh_url or "")
-            self.dot_hostname_row.set_text(s.tls_hostname or "")
             selected_idx = {DNSType.STANDARD: 0, DNSType.DOH: 1, DNSType.DOT: 2}.get(s.dns_type, 0)
             self.type_row.set_selected(selected_idx)
-            self.doh_row.set_visible(selected_idx == 1)
-            self.dot_hostname_row.set_visible(selected_idx == 2)
 
-    def get_profile(self) -> Optional[DNSProfile]:
+            if s.dns_type == DNSType.STANDARD:
+                self.primary_row.set_text(s.primary or "")
+                self.secondary_row.set_text(s.secondary or "")
+            elif s.dns_type == DNSType.DOH:
+                self.doh_row.set_text(s.doh_url or "")
+            elif s.dns_type == DNSType.DOT:
+                if s.tls_hostname and s.primary != s.tls_hostname:
+                    self.dot_server_row.set_text(f"{s.primary}#{s.tls_hostname}")
+                else:
+                    self.dot_server_row.set_text(s.primary or s.tls_hostname or "")
+                self.dot_secondary_row.set_text(s.secondary or "")
+
+            self._update_field_visibility(selected_idx)
+
+    @staticmethod
+    def _parse_dot_server(raw: str) -> tuple[str, Optional[str]]:
+        raw = raw.strip()
+        if '#' in raw:
+            parts = raw.split('#', 1)
+            return parts[0].strip(), parts[1].strip() or None
+        if raw in KNOWN_DOT_PROVIDERS:
+            return KNOWN_DOT_PROVIDERS[raw], raw
+        if raw in KNOWN_IP_TO_DOT:
+            return raw, KNOWN_IP_TO_DOT[raw]
+        return raw, None
+
+    def get_profile(self) -> tuple[Optional[DNSProfile], Optional[str]]:
         name = self.name_row.get_text().strip()
-        primary = self.primary_row.get_text().strip()
-        if not name or not primary:
-            return None
-        dns_type = [DNSType.STANDARD, DNSType.DOH, DNSType.DOT][self.type_row.get_selected()]
-        server = DNSServer(name=name, primary=primary,
-                            secondary=self.secondary_row.get_text().strip() or None,
-                            description=self.description_row.get_text().strip() or None,
-                            dns_type=dns_type,
-                            doh_url=self.doh_row.get_text().strip() if dns_type == DNSType.DOH else None,
-                            tls_hostname=self.dot_hostname_row.get_text().strip() if dns_type == DNSType.DOT else None)
-        return DNSProfile(name, [server])
+        if not name:
+            return None, "Profile Name is required."
+
+        selected = self.type_row.get_selected()
+        dns_type = [DNSType.STANDARD, DNSType.DOH, DNSType.DOT][selected]
+        description = self.description_row.get_text().strip() or None
+
+        if dns_type == DNSType.STANDARD:
+            primary = self.primary_row.get_text().strip()
+            if not primary:
+                return None, "Primary DNS IP is required for Standard DNS."
+            secondary = self.secondary_row.get_text().strip() or None
+            server = DNSServer(name=name, primary=primary, secondary=secondary,
+                               dns_type=dns_type, description=description)
+            return DNSProfile(name, [server]), None
+
+        elif dns_type == DNSType.DOH:
+            doh_url = self.doh_row.get_text().strip()
+            if not doh_url:
+                return None, "DoH URL is required for DNS over HTTPS."
+            if not (doh_url.startswith("https://") or doh_url.startswith("http://")):
+                doh_url = "https://" + doh_url
+
+            import urllib.parse
+            parsed = urllib.parse.urlparse(doh_url)
+            host = parsed.hostname or "127.0.0.54"
+            primary = KNOWN_DOT_PROVIDERS.get(host, host)
+            server = DNSServer(name=name, primary=primary, dns_type=dns_type,
+                               doh_url=doh_url, description=description)
+            return DNSProfile(name, [server]), None
+
+        elif dns_type == DNSType.DOT:
+            raw_server = self.dot_server_row.get_text().strip()
+            if not raw_server:
+                return None, "DoT Server address or hostname is required."
+
+            primary, tls_hostname = self._parse_dot_server(raw_server)
+            raw_secondary = self.dot_secondary_row.get_text().strip()
+            secondary = None
+            if raw_secondary:
+                sec_primary, _ = self._parse_dot_server(raw_secondary)
+                secondary = sec_primary
+
+            server = DNSServer(name=name, primary=primary, secondary=secondary,
+                               dns_type=dns_type, tls_hostname=tls_hostname,
+                               description=description)
+            return DNSProfile(name, [server]), None
+
+        return None, "Invalid DNS type."
