@@ -11,7 +11,8 @@ class BaseToolBox:
 
     @property
     def _subprocess(self) -> subprocess.Popen:
-        if self._subprocess_keeper:
+        # A dead daemon (cancelled auth, crash) is replaced, so the next call prompts again
+        if self._subprocess_keeper and self._subprocess_keeper.poll() is None:
             return self._subprocess_keeper
         
         system_daemon_launcher = Path('/usr/lib/namban/namban-daemon')
@@ -43,7 +44,8 @@ class BaseToolBox:
     def _readline(self):
         line = self._subprocess.stdout.readline()
         if not line:
-            returncode = self._subprocess.poll()
+            returncode = self._subprocess_keeper.wait()
+            self._subprocess_keeper = None
             raise RuntimeError(f"Privileged daemon process terminated or authorization cancelled (code: {returncode})")
         line = line.decode()
         return line.strip()

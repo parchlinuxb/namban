@@ -18,7 +18,6 @@ class ProfileManager:
         default_profiles = [
             DNSProfile("Cloudflare", [DNSServer("Cloudflare", "1.1.1.1", "1.0.0.1")]),
             DNSProfile("Cloudflare DoT", [DNSServer("Cloudflare DoT", "1.1.1.1", "1.0.0.1", DNSType.DOT, tls_hostname="cloudflare-dns.com")]),
-            DNSProfile("Cloudflare DoH", [DNSServer("Cloudflare DoH", "1.1.1.1", "1.0.0.1", DNSType.DOH, doh_url="https://cloudflare-dns.com/dns-query")]),
             DNSProfile("Google", [DNSServer("Google", "8.8.8.8", "8.8.4.4")]),
             DNSProfile("Google DoT", [DNSServer("Google DoT", "8.8.8.8", "8.8.4.4", DNSType.DOT, tls_hostname="dns.google")]),
             DNSProfile("Quad9 DoT", [DNSServer("Quad9 DoT", "9.9.9.9", "149.112.112.112", DNSType.DOT, tls_hostname="dns.quad9.net")]),

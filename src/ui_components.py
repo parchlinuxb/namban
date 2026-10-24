@@ -88,7 +88,7 @@ class ProfileRow(Adw.ActionRow):
 
     def _on_switch_state_set(self, switch, state):
         if self._is_updating:
-            return True
+            return False
         self.on_activate(self.profile, state)
         return False
 
@@ -117,16 +117,13 @@ class ProfileEditSheet(Gtk.Box):
         page.add(group)
         self.name_row = Adw.EntryRow(title="Profile Name")
         
-        type_model = Gtk.StringList.new(["Standard DNS", "DNS over HTTPS (DoH)", "DNS over TLS (DoT)"])
+        type_model = Gtk.StringList.new(["Standard DNS", "DNS over TLS (DoT)"])
         self.type_row = Adw.ComboRow(title="DNS Type", model=type_model)
         self.type_row.connect('notify::selected', self._on_type_changed)
         
         # Standard DNS rows
         self.primary_row = Adw.EntryRow(title="Primary DNS (IP)")
         self.secondary_row = Adw.EntryRow(title="Secondary DNS (IP, Optional)")
-
-        # DoH row
-        self.doh_row = Adw.EntryRow(title="DoH URL (e.g. https://cloudflare-dns.com/dns-query)", visible=False)
 
         # DoT rows
         self.dot_server_row = Adw.EntryRow(title="DoT Server (e.g. 1.1.1.1#cloudflare-dns.com or dns.google)", visible=False)
@@ -135,41 +132,38 @@ class ProfileEditSheet(Gtk.Box):
         self.description_row = Adw.EntryRow(title="Description (Optional)")
 
         for row in [self.name_row, self.type_row, self.primary_row, self.secondary_row,
-                    self.doh_row, self.dot_server_row, self.dot_secondary_row, self.description_row]:
+                    self.dot_server_row, self.dot_secondary_row, self.description_row]:
             group.add(row)
 
     def _on_type_changed(self, *_):
         self._update_field_visibility(self.type_row.get_selected())
 
     def _update_field_visibility(self, selected: int):
-        # 0: Standard, 1: DoH, 2: DoT
+        # 0: Standard, 1: DoT
         self.primary_row.set_visible(selected == 0)
         self.secondary_row.set_visible(selected == 0)
 
-        self.doh_row.set_visible(selected == 1)
-
-        self.dot_server_row.set_visible(selected == 2)
-        self.dot_secondary_row.set_visible(selected == 2)
+        self.dot_server_row.set_visible(selected == 1)
+        self.dot_secondary_row.set_visible(selected == 1)
 
     def _populate_fields(self):
         self.name_row.set_text(self.profile.name)
         if self.profile.servers:
             s = self.profile.servers[0]
             self.description_row.set_text(s.description or "")
-            selected_idx = {DNSType.STANDARD: 0, DNSType.DOH: 1, DNSType.DOT: 2}.get(s.dns_type, 0)
+            # Legacy DoH profiles open as Standard so they can be converted
+            selected_idx = 1 if s.dns_type == DNSType.DOT else 0
             self.type_row.set_selected(selected_idx)
 
-            if s.dns_type == DNSType.STANDARD:
-                self.primary_row.set_text(s.primary or "")
-                self.secondary_row.set_text(s.secondary or "")
-            elif s.dns_type == DNSType.DOH:
-                self.doh_row.set_text(s.doh_url or "")
-            elif s.dns_type == DNSType.DOT:
+            if s.dns_type == DNSType.DOT:
                 if s.tls_hostname and s.primary != s.tls_hostname:
                     self.dot_server_row.set_text(f"{s.primary}#{s.tls_hostname}")
                 else:
                     self.dot_server_row.set_text(s.primary or s.tls_hostname or "")
                 self.dot_secondary_row.set_text(s.secondary or "")
+            else:
+                self.primary_row.set_text(s.primary or "")
+                self.secondary_row.set_text(s.secondary or "")
 
             self._update_field_visibility(selected_idx)
 
@@ -191,7 +185,7 @@ class ProfileEditSheet(Gtk.Box):
             return None, "Profile Name is required."
 
         selected = self.type_row.get_selected()
-        dns_type = [DNSType.STANDARD, DNSType.DOH, DNSType.DOT][selected]
+        dns_type = [DNSType.STANDARD, DNSType.DOT][selected]
         description = self.description_row.get_text().strip() or None
 
         if dns_type == DNSType.STANDARD:
@@ -201,21 +195,6 @@ class ProfileEditSheet(Gtk.Box):
             secondary = self.secondary_row.get_text().strip() or None
             server = DNSServer(name=name, primary=primary, secondary=secondary,
                                dns_type=dns_type, description=description)
-            return DNSProfile(name, [server]), None
-
-        elif dns_type == DNSType.DOH:
-            doh_url = self.doh_row.get_text().strip()
-            if not doh_url:
-                return None, "DoH URL is required for DNS over HTTPS."
-            if not (doh_url.startswith("https://") or doh_url.startswith("http://")):
-                doh_url = "https://" + doh_url
-
-            import urllib.parse
-            parsed = urllib.parse.urlparse(doh_url)
-            host = parsed.hostname or "127.0.0.54"
-            primary = KNOWN_DOT_PROVIDERS.get(host, host)
-            server = DNSServer(name=name, primary=primary, dns_type=dns_type,
-                               doh_url=doh_url, description=description)
             return DNSProfile(name, [server]), None
 
         elif dns_type == DNSType.DOT:

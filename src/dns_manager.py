@@ -91,11 +91,7 @@ class DNSManager:
                     servers_str = line.split('=', 1)[1]
                     for s in servers_str.split():
                         # Strip DoT SNI suffix (#hostname) for user-friendly display
-                        clean_s = s.split('#')[0]
-                        if clean_s == "127.0.0.54:53":
-                            dns_servers.append("DoH (Local Proxy)")
-                        else:
-                            dns_servers.append(clean_s)
+                        dns_servers.append(s.split('#')[0])
             
             return dns_servers
         except Exception as e:

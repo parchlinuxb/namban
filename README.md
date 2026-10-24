@@ -15,7 +15,8 @@ A simple gui tool for set dns settings based on GTK4 and Adwaita, related to [pa
 5. A lot of milk for mental peace
 
 ## To Do
-- [X] DoH & DoT support.
+- [X] DoT support.
+- [ ] DoH support (via dnscrypt-proxy).
 - [X] Refactor UI using Adwaita
 - [ ] Make sure it's compatible with previous version.
 - [ ] Test beta version

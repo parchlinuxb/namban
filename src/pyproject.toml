@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "namban-dns"
 version = "2.0.0"
-description = "A modern GTK4/Adwaita DNS management application with DoH support"
+description = "A modern GTK4/Adwaita DNS management application with DoT support"
 authors = [
     {name = "Ali Gholipour"},
     {name = "Hussein Eslami"},

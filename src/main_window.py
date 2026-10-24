@@ -1,7 +1,7 @@
 import gi
 from typing import List, Optional
 from gi.repository import Gtk, Adw, GLib, Gio
-from models import DNSProfile, DNSType
+from models import DNSProfile
 from dns_manager import DNSManager
 from profile_manager import ProfileManager
 from ui_components import ProfileRow, ProfileEditSheet, SettingsPage
@@ -69,12 +69,9 @@ class MainWindow(Adw.ApplicationWindow):
             # Check if profile matches active system DNS
             profile_servers = []
             for s in profile.servers:
-                if s.dns_type == DNSType.DOH:
-                    profile_servers.append("DoH (Local Proxy)")
-                else:
-                    profile_servers.append(s.primary)
-                    if s.secondary:
-                        profile_servers.append(s.secondary)
+                profile_servers.append(s.primary)
+                if s.secondary:
+                    profile_servers.append(s.secondary)
             if profile_servers and profile_servers == current_dns:
                 row.set_active(True)
                 self.active_profile = profile
