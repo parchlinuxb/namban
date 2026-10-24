@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 ziperrorandexit() {
     echo make sure you have zip installed and you are in archlinux directory
@@ -21,6 +22,11 @@ main () {
     zip -r ../archlinux/build/namban-source.zip rootfs || ziperrorandexit
     cd ../archlinux || return
     cp PKGBUILD build
+    # On release CI, version the package from the tag (pacman forbids '-' in pkgver)
+    if [ -n "${release_name:-}" ]; then
+        ver="${release_name#v}"
+        sed -i "s/^pkgver=.*/pkgver=${ver//-/_}/; s/^pkgrel=.*/pkgrel=1/" build/PKGBUILD
+    fi
     cd build || return
     makepkg -sc
     cd ..

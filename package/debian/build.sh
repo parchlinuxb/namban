@@ -13,6 +13,7 @@ depends=(
 	"python3-gi"
 	"gir1.2-gtk-4.0"
 	"gir1.2-adw-1 (>= 1.6)"
+	"systemd-resolved"
 )
 
 prepare() {

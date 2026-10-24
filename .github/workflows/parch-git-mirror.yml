@@ -11,13 +11,17 @@ on:
 jobs:
   mirror:
     runs-on: ubuntu-latest
+    env:
+      FORGEJO_MIRROR_URL: ${{ secrets.FORGEJO_MIRROR_URL }}
     steps:
       - name: Checkout
+        if: env.FORGEJO_MIRROR_URL != ''
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # we need full history for --mirror
 
       - name: Push to Forgejo
+        if: env.FORGEJO_MIRROR_URL != ''
         run: |
-          git remote add forgejo "${{ secrets.FORGEJO_MIRROR_URL }}"
+          git remote add forgejo "$FORGEJO_MIRROR_URL"
           git push --mirror forgejo
