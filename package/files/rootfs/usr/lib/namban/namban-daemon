@@ -1,0 +1,3 @@
+#!/bin/bash
+# Dedicated helper launcher for Namban root daemon
+exec /usr/bin/python3 /usr/lib/namban/src/nambancore/daemon.py "$@"

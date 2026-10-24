@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 
 # Add src directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), 'src'))
 
 from dns_manager import DNSManager
 from nambancore.toolbox import BaseToolBox
@@ -28,8 +28,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def has_default_route() -> bool:
+    """True if the kernel has an IPv4 or IPv6 default route."""
+    try:
+        with open('/proc/net/route') as f:
+            if any(line.split()[1] == '00000000' for line in list(f)[1:]):
+                return True
+        with open('/proc/net/ipv6_route') as f:
+            # dest ::/0, skipping the loopback "unreachable" entry
+            return any(line.startswith('0' * 32 + ' 00') and not line.rstrip().endswith(' lo') for line in f)
+    except OSError:
+        return True  # can't tell; let the DNS test decide
+
+
 def check_and_rollback_if_needed():
-    """Check if rollback is needed and perform if necessary."""
+    """Check if rollback is needed and perform if necessary.
+    
+    Verifies that DNS resolution is functioning. Only rolls back if DNS resolution fails.
+    """
     logger.info("Namban emergency rollback check started")
     
     try:
@@ -44,9 +60,29 @@ def check_and_rollback_if_needed():
         if not history:
             logger.info("No DNS changes in history")
             return True
-        
-        logger.warning(f"Found {len(history)} DNS configuration changes in history")
-        logger.info("This could indicate the system crashed during DNS updates.")
+
+        # Offline is not broken DNS: without a default route, keep the user's config
+        if not has_default_route():
+            logger.info("No default route (offline); skipping DNS check")
+            return True
+
+        # Test whether DNS resolution is working
+        import socket
+        dns_healthy = False
+        test_domains = ["parchlinux.com", "archlinux.org", "kernel.org"]
+        for domain in test_domains:
+            try:
+                socket.getaddrinfo(domain, 80)
+                dns_healthy = True
+                break
+            except Exception:
+                continue
+
+        if dns_healthy:
+            logger.info("DNS safety check passed: network resolution is healthy")
+            return True
+
+        logger.warning(f"DNS resolution failed and {len(history)} configuration changes found in history")
         logger.info("Performing emergency rollback to restore stability...")
         
         if dns_manager.restore_previous_config():

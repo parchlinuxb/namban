@@ -65,14 +65,9 @@ class ActionHistory:
     def ensure_history_dir(self) -> None:
         """Create history directory if it doesn't exist using toolbox."""
         history_dir_str = str(self.history_dir)
-        
-        # Check if directory exists
         if not toolbox.exists(history_dir_str):
-            # For directory creation, we need to use a privileged operation
-            # Create a marker file in the directory to ensure it exists
-            marker_file = self.history_dir / ".namban_initialized"
             try:
-                toolbox.write(str(marker_file), "")
+                toolbox.mkdir(history_dir_str)
             except Exception as e:
                 print(f"Warning: Could not ensure history directory: {e}")
     

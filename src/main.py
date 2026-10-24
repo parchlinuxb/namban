@@ -111,6 +111,8 @@ def main():
                        help='Rollback DNS changes and exit')
     parser.add_argument('--check-safety', action='store_true',
                        help='Check system safety and exit')
+    parser.add_argument('--release', action='store_true',
+                       help='Run in release mode')
     
     args, remaining = parser.parse_known_args()
     
@@ -120,7 +122,7 @@ def main():
         elif args.check_safety:
             return handle_check_safety()
         else:
-            return NambanApplication().run(remaining)
+            return NambanApplication().run([sys.argv[0]] + remaining)
     except Exception as e:
         logger.critical(f"Application failed: {e}", exc_info=True)
         return 1

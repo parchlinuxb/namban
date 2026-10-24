@@ -55,6 +55,9 @@ class MainWindow(Adw.ApplicationWindow):
         for row in self.profile_rows:
             self.profiles_group.remove(row)
         self.profile_rows.clear()
+        current_dns = self.dns_manager.get_current_dns()
+        self.active_profile = None
+
         for profile in self.profile_manager.profiles:
             row = ProfileRow(profile,
                              on_activate=self._on_profile_activate,
@@ -62,6 +65,16 @@ class MainWindow(Adw.ApplicationWindow):
                              on_delete=self._on_profile_delete)
             self.profiles_group.add(row)
             self.profile_rows.append(row)
+
+            # Check if profile matches active system DNS
+            profile_servers = []
+            for s in profile.servers:
+                profile_servers.append(s.primary)
+                if s.secondary:
+                    profile_servers.append(s.secondary)
+            if profile_servers and profile_servers == current_dns:
+                row.set_active(True)
+                self.active_profile = profile
 
     def _update_status(self):
         current_dns = self.dns_manager.get_current_dns()
@@ -110,7 +123,7 @@ class MainWindow(Adw.ApplicationWindow):
         header.pack_end(save_button)
 
         def on_save(_):
-            new_profile = sheet_content.get_profile()
+            new_profile, error_msg = sheet_content.get_profile()
             if new_profile:
                 if old_profile:
                     self._on_profile_updated(old_profile, new_profile)
@@ -118,7 +131,7 @@ class MainWindow(Adw.ApplicationWindow):
                     self._on_profile_added(new_profile)
                 self.bottom_sheet.set_open(False)
             else:
-                self.toast_overlay.add_toast(Adw.Toast.new("Profile Name and Primary DNS are required."))
+                self.toast_overlay.add_toast(Adw.Toast.new(error_msg or "Please fill in all required fields."))
 
         save_button.connect('clicked', on_save)
         self.bottom_sheet.set_sheet(toolbar_view)
