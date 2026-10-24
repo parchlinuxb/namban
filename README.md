@@ -16,7 +16,7 @@ A simple gui tool for set dns settings based on GTK4 and Adwaita, related to [pa
 
 ## To Do
 - [X] DoT support.
-- [ ] DoH support (via dnscrypt-proxy).
+- [X] DoH support (install `dnscrypt-proxy`).
 - [X] Refactor UI using Adwaita
 - [ ] Make sure it's compatible with previous version.
 - [ ] Test beta version

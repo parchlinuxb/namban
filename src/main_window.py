@@ -1,7 +1,9 @@
 import gi
 from typing import List, Optional
 from gi.repository import Gtk, Adw, GLib, Gio
-from models import DNSProfile
+import os
+from models import DNSProfile, DNSType
+from nambancore.dns_actions import DNSCRYPT_BIN
 from dns_manager import DNSManager
 from profile_manager import ProfileManager
 from ui_components import ProfileRow, ProfileEditSheet, SettingsPage
@@ -69,6 +71,9 @@ class MainWindow(Adw.ApplicationWindow):
             # Check if profile matches active system DNS
             profile_servers = []
             for s in profile.servers:
+                if s.dns_type == DNSType.DOH:
+                    profile_servers.append(s.doh_url)
+                    continue
                 profile_servers.append(s.primary)
                 if s.secondary:
                     profile_servers.append(s.secondary)
@@ -83,6 +88,13 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_profile_activate(self, profile: DNSProfile, state: bool):
         if state:
+            if any(s.dns_type == DNSType.DOH for s in profile.servers) and not os.path.exists(DNSCRYPT_BIN):
+                self.toast_overlay.add_toast(Adw.Toast.new("Install dnscrypt-proxy to use DNS over HTTPS"))
+                for row in self.profile_rows:
+                    if row.profile == profile:
+                        row.set_active(False)
+                        break
+                return
             if self.dns_manager.apply_profile(profile):
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Applied: {profile.name}"))
                 self.active_profile = profile

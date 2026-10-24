@@ -35,16 +35,9 @@ class WriteToFile(BaseAction):
             toolbox.remove(destination)
 
 class ActionPool:
-    def __init__(self, *actions:type[BaseAction]):
-        self.actions = actions
-    
     def get(self, name:str) -> type[BaseAction]:
-        for action in self.actions:
-            if action.__name__ == name:
-                return action
-        return None
+        # Imported here, not at module top: dns_actions imports this module
+        from . import dns_actions  # noqa: F401  registers the DNS actions
+        return next((a for a in BaseAction.__subclasses__() if a.__name__ == name), None)
 
-# Import DNS actions to register them
-from .dns_actions import ApplyDNSProfile, BackupDNSConfig
-
-action_pool = ActionPool(WriteToFile, ApplyDNSProfile, BackupDNSConfig)
+action_pool = ActionPool()

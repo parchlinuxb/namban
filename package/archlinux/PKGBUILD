@@ -7,6 +7,7 @@ url="https://github.com/parchlinuxb/namban"
 license=("GPL-3.0")
 makedepends=("git")
 depends=("python>=3.10.0" "python-gobject" "gtk4" "libadwaita")
+optdepends=("dnscrypt-proxy: DNS over HTTPS profiles")
 source=("namban-source.zip")
 sha256sums=('SKIP')
 

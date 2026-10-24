@@ -2,6 +2,7 @@ import gi
 from typing import Optional, Callable
 from gi.repository import Gtk, Adw
 from models import DNSProfile, DNSServer, DNSType
+from nambancore.dns_actions import doh_stamp
 from proxy_manager import ProxyManager
 
 class SettingsPage(Adw.PreferencesPage):
@@ -117,7 +118,7 @@ class ProfileEditSheet(Gtk.Box):
         page.add(group)
         self.name_row = Adw.EntryRow(title="Profile Name")
         
-        type_model = Gtk.StringList.new(["Standard DNS", "DNS over TLS (DoT)"])
+        type_model = Gtk.StringList.new(["Standard DNS", "DNS over TLS (DoT)", "DNS over HTTPS (DoH)"])
         self.type_row = Adw.ComboRow(title="DNS Type", model=type_model)
         self.type_row.connect('notify::selected', self._on_type_changed)
         
@@ -129,30 +130,37 @@ class ProfileEditSheet(Gtk.Box):
         self.dot_server_row = Adw.EntryRow(title="DoT Server (e.g. 1.1.1.1#cloudflare-dns.com or dns.google)", visible=False)
         self.dot_secondary_row = Adw.EntryRow(title="Secondary DoT Server (Optional)", visible=False)
 
+        # DoH rows (served through dnscrypt-proxy)
+        self.doh_url_row = Adw.EntryRow(title="DoH URL (e.g. https://cloudflare-dns.com/dns-query)", visible=False)
+        self.doh_ip_row = Adw.EntryRow(title="Server IP (Optional, skips the bootstrap lookup)", visible=False)
+
         self.description_row = Adw.EntryRow(title="Description (Optional)")
 
         for row in [self.name_row, self.type_row, self.primary_row, self.secondary_row,
-                    self.dot_server_row, self.dot_secondary_row, self.description_row]:
+                    self.dot_server_row, self.dot_secondary_row, self.doh_url_row, self.doh_ip_row,
+                    self.description_row]:
             group.add(row)
 
     def _on_type_changed(self, *_):
         self._update_field_visibility(self.type_row.get_selected())
 
     def _update_field_visibility(self, selected: int):
-        # 0: Standard, 1: DoT
+        # 0: Standard, 1: DoT, 2: DoH
         self.primary_row.set_visible(selected == 0)
         self.secondary_row.set_visible(selected == 0)
 
         self.dot_server_row.set_visible(selected == 1)
         self.dot_secondary_row.set_visible(selected == 1)
 
+        self.doh_url_row.set_visible(selected == 2)
+        self.doh_ip_row.set_visible(selected == 2)
+
     def _populate_fields(self):
         self.name_row.set_text(self.profile.name)
         if self.profile.servers:
             s = self.profile.servers[0]
             self.description_row.set_text(s.description or "")
-            # Legacy DoH profiles open as Standard so they can be converted
-            selected_idx = 1 if s.dns_type == DNSType.DOT else 0
+            selected_idx = {DNSType.DOT: 1, DNSType.DOH: 2}.get(s.dns_type, 0)
             self.type_row.set_selected(selected_idx)
 
             if s.dns_type == DNSType.DOT:
@@ -161,6 +169,9 @@ class ProfileEditSheet(Gtk.Box):
                 else:
                     self.dot_server_row.set_text(s.primary or s.tls_hostname or "")
                 self.dot_secondary_row.set_text(s.secondary or "")
+            elif s.dns_type == DNSType.DOH:
+                self.doh_url_row.set_text(s.doh_url or "")
+                self.doh_ip_row.set_text(s.primary or "")
             else:
                 self.primary_row.set_text(s.primary or "")
                 self.secondary_row.set_text(s.secondary or "")
@@ -185,7 +196,7 @@ class ProfileEditSheet(Gtk.Box):
             return None, "Profile Name is required."
 
         selected = self.type_row.get_selected()
-        dns_type = [DNSType.STANDARD, DNSType.DOT][selected]
+        dns_type = [DNSType.STANDARD, DNSType.DOT, DNSType.DOH][selected]
         description = self.description_row.get_text().strip() or None
 
         if dns_type == DNSType.STANDARD:
@@ -212,6 +223,19 @@ class ProfileEditSheet(Gtk.Box):
             server = DNSServer(name=name, primary=primary, secondary=secondary,
                                dns_type=dns_type, tls_hostname=tls_hostname,
                                description=description)
+            return DNSProfile(name, [server]), None
+
+        elif dns_type == DNSType.DOH:
+            doh_url = self.doh_url_row.get_text().strip()
+            if "://" not in doh_url:
+                doh_url = "https://" + doh_url
+            ip = self.doh_ip_row.get_text().strip()
+            try:
+                doh_stamp(doh_url, ip)  # same validation the apply step does
+            except ValueError as e:
+                return None, str(e)
+            server = DNSServer(name=name, primary=ip, dns_type=dns_type,
+                               doh_url=doh_url, description=description)
             return DNSProfile(name, [server]), None
 
         return None, "Invalid DNS type."

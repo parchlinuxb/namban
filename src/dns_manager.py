@@ -7,7 +7,7 @@ from typing import List, Optional
 from models import DNSProfile, DNSType
 from nambancore.toolbox import BaseToolBox, toolbox
 from nambancore.action_history import ActionHistory
-from nambancore.dns_actions import ApplyDNSProfile, BackupDNSConfig
+from nambancore.dns_actions import ApplyDNSProfile, BackupDNSConfig, DNSCRYPT_CONF, DNSCRYPT_LISTEN, DOH_URL_MARKER
 
 
 class DNSManager:
@@ -90,6 +90,9 @@ class DNSManager:
                 if line.startswith('DNS='):
                     servers_str = line.split('=', 1)[1]
                     for s in servers_str.split():
+                        if s == DNSCRYPT_LISTEN:
+                            dns_servers.append(self._current_doh_url() or "DNS over HTTPS")
+                            continue
                         # Strip DoT SNI suffix (#hostname) for user-friendly display
                         dns_servers.append(s.split('#')[0])
             
@@ -98,6 +101,18 @@ class DNSManager:
             print(f"Error reading DNS config: {e}")
             return []
     
+    @staticmethod
+    def _current_doh_url() -> Optional[str]:
+        """The DoH URL dnscrypt-proxy is configured for (recorded in its config)."""
+        try:
+            with open(DNSCRYPT_CONF, encoding='utf-8') as f:
+                for line in f:
+                    if line.startswith(DOH_URL_MARKER):
+                        return line[len(DOH_URL_MARKER):].strip()
+        except OSError:
+            pass
+        return None
+
     def clear_history(self) -> None:
         """Clear action history (for testing/cleanup)."""
         self.history.clear_history()

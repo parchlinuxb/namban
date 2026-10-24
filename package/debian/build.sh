@@ -38,6 +38,7 @@ package() {
 	Architecture: $arch
 	Maintainer: $maintainer
 	Depends: $depends_str
+	Suggests: dnscrypt-proxy
 	Description: $pkgdesc
 	EOF
 

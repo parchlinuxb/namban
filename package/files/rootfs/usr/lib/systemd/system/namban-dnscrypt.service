@@ -1,0 +1,19 @@
+[Unit]
+Description=Namban DNS-over-HTTPS forwarder (dnscrypt-proxy)
+Documentation=https://github.com/parchlinuxb/namban
+ConditionPathExists=/etc/namban/dnscrypt-proxy.toml
+Before=nss-lookup.target
+Wants=nss-lookup.target
+
+[Service]
+ExecStart=/usr/bin/dnscrypt-proxy -config /etc/namban/dnscrypt-proxy.toml
+Restart=on-failure
+RestartSec=2s
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
