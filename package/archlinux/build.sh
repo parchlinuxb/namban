@@ -28,7 +28,7 @@ main () {
         sed -i "s/^pkgver=.*/pkgver=${ver//-/_}/; s/^pkgrel=.*/pkgrel=1/" build/PKGBUILD
     fi
     cd build || return
-    makepkg -sc
+    makepkg -sc --noconfirm
     cd ..
 }
 

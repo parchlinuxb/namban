@@ -18,7 +18,7 @@ jobs:
       - name: Install gh-cli
         run: |
           apt update
-          apt install gh
+          apt install -y gh ca-certificates
 
       - name: Run the build script
         run: ./package/debian/build.sh
